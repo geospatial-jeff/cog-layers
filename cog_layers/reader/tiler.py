@@ -43,7 +43,7 @@ async def request_metatile(cog: Cog, tile: mercantile.Tile, size: int) -> list[l
     children = mercantile.children(tile, zoom=metatile_zoom)
     xs, ys = zip(*[(child.x - origin.x, child.y - origin.y) for child in children])
     unique_ys = list(set(ys))
-    overview_level = metatile_zoom - seed_tile.z - 1
+    overview_level = seed_tile.z + len(cog.ifds) - metatile_zoom - 1
     return await asyncio.gather(*[
         read_row(y, overview_level, cog, min(xs), max(xs)) for y in unique_ys
     ])

@@ -36,7 +36,7 @@ def _add_jpeg_tables(tile: bytes, ifd: IFD, endian: Endian):
         raise Exception("Missing SOI marker for JPEG tile")
 
 
-async def open(callable: RangeRequestFuncType, bucket: str, key: str, header_size_bytes: int = 32768) -> Cog:
+async def open_cog(callable: RangeRequestFuncType, bucket: str, key: str, header_size_bytes: int = 32768) -> Cog:
     """Open a Cloud Optimized GeoTiff using the supplied callable.  `header_size_bytes` must be set large
     enough to read the entire header or this code will probably break.
     """
@@ -72,7 +72,6 @@ async def open(callable: RangeRequestFuncType, bucket: str, key: str, header_siz
             tag_cls = _get_tag_cls(tag_code)
 
             if not tag_cls:
-                print("WARNING: Skipping tag: ", tag_code)
                 continue
 
             # Bytes 2-4 contain the tag's field type.
