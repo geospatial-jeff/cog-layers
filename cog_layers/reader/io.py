@@ -12,8 +12,7 @@ RangeRequestFuncType = typing.Callable[[str, str, int, int, typing.Any], typing.
 
 @functools.lru_cache(maxsize=1)
 def _get_default_aiohttp_client(**kwargs) -> aiohttp.ClientSession:
-    """Default aiohttp client with a singleton cache.
-    """
+    """Default aiohttp client with a singleton cache."""
     return aiohttp.ClientSession(**kwargs)
 
 
@@ -28,11 +27,10 @@ def _get_default_obstore_client(bucket_name: str, **kwargs) -> obs.store.S3Store
 
 
 async def send_range_obstore(bucket:str, key:str, start: int, end: int, client: typing.Any | None = None) -> bytes:
+    """Send a range request with obstore.
+    
+    Creates a single client and reuses unless overridden by caller.
+    """
     client = client or _get_default_obstore_client(bucket)
-    store = obs.store.S3Store(
-        bucket,
-        config={"aws_default_region": "us-west-2", "aws_skip_signature": True}
-    )
-    r = await obs.get_range_async(store, key, start=start, end=end)
+    r = await obs.get_range_async(client, key, start=start, end=end)
     return r.to_bytes()
-

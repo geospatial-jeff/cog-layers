@@ -14,27 +14,32 @@ def _get_tag_cls(code: int) -> typing.Type[Tag] | None:
     return available_tags.get(code, None)
 
 def _get_endian(b: bytes) -> Endian:
+    """Lookup endian."""
     return _ENDIAN_BYTES[b]
 
 def _get_tag_type(code: int) -> TagType:
+    """Lookup tag type."""
     return _TAG_TYPES[code]
 
 
-def _add_jpeg_tables(b: bytes, ifd: IFD, endian: Endian):
-    # Assumping everything is JPEG, add the tables.
+def _add_jpeg_tables(tile: bytes, ifd: IFD, endian: Endian):
+    """Append JPEG tables to the tile, making it a valid JPEG image"""
     jpeg_tables = ifd.tags['JPEGTables']
     encoded_jpeg_tables = struct.pack(
         f"{endian.value}{jpeg_tables.count}{jpeg_tables.type.format}",
         *jpeg_tables.value,
     )
-    if b[0] == 0xFF and b[1] == 0xD8:
+    if tile[0] == 0xFF and tile[1] == 0xD8:
         # insert tables, first removing the SOI and EOI
-        return b[0:2] + encoded_jpeg_tables[2:-2] + b[2:]
+        return tile[0:2] + encoded_jpeg_tables[2:-2] + tile[2:]
     else:
         raise Exception("Missing SOI marker for JPEG tile")
 
 
 async def open(callable: RangeRequestFuncType, bucket: str, key: str, header_size_bytes: int = 32768) -> Cog:
+    """Open a Cloud Optimized GeoTiff using the supplied callable.  `header_size_bytes` must be set large
+    enough to read the entire header or this code will probably break.
+    """
     b = await callable(bucket, key, start=0, end=header_size_bytes)
 
     # Read the header
@@ -110,6 +115,11 @@ async def open(callable: RangeRequestFuncType, bucket: str, key: str, header_siz
 
 
 async def read_tile(x: int, y: int, z: int, cog: Cog) -> bytes:
+    """Read a single tile from an IFD.
+    
+    Inputs are expressed in tile coordinates relative to the top-left corner
+    of the image, while `z` is used to select the IFD.
+    """
     # Calculate number of columns in the IFD.
     ifd = cog.ifds[z]
     image_width = ifd.tags["ImageWidth"].value[0]
@@ -128,7 +138,12 @@ async def read_tile(x: int, y: int, z: int, cog: Cog) -> bytes:
 
 
 async def read_row(y: int, z: int, cog: Cog, x_start: int | None = None, x_end: int | None = None) -> list[bytes]:
-    """Read a row of tiles, merging all ranges."""
+    """Read a row of tiles, merging all ranges.
+    
+    Inputs are expressed in tile coordinates relative to the top-left corner
+    of the image.  Optionally return only tiles between `x_start` and
+    `x_end` (inclusive).
+    """
     ifd = cog.ifds[z]
     image_width = ifd.tags["ImageWidth"].value[0]
     tile_width = ifd.tags["TileWidth"].value[0]
