@@ -2,6 +2,8 @@ from dataclasses import dataclass
 import typing
 import enum
 
+from cog_layers.reader.io import RangeRequestFuncType
+
 
 class Endian(enum.Enum):
     """Endiannes of the TIFF file."""
@@ -213,4 +215,5 @@ class Cog:
     key: str
     header: Header
     ifds: typing.List[IFD]
+    _send_range_request: RangeRequestFuncType | None = None
 

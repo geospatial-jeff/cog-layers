@@ -106,10 +106,10 @@ async def open(callable: RangeRequestFuncType, bucket: str, key: str, header_siz
             IFD(tag_count=tag_count, next_ifd_offset=next_ifd_offset, tags=tags)
         )
 
-    return Cog(bucket, key, header, ifds)
+    return Cog(bucket, key, header, ifds, _send_range_request=callable)
 
 
-async def read_tile(callable: RangeRequestFuncType, x: int, y: int, z: int, cog: Cog) -> bytes:
+async def read_tile(x: int, y: int, z: int, cog: Cog) -> bytes:
     # Calculate number of columns in the IFD.
     ifd = cog.ifds[z]
     image_width = ifd.tags["ImageWidth"].value[0]
@@ -122,12 +122,12 @@ async def read_tile(callable: RangeRequestFuncType, x: int, y: int, z: int, cog:
     tile_byte_count = ifd.tags["TileByteCounts"].value[idx]
 
     # Read the tile.
-    b = await callable(cog.bucket, cog.key, tile_offset, tile_offset + tile_byte_count)
+    b = await cog._send_range_request(cog.bucket, cog.key, tile_offset, tile_offset + tile_byte_count)
     b = _add_jpeg_tables(b, ifd, cog.header.endian)
     return b
 
 
-async def read_row(callable: RangeRequestFuncType, y: int, z: int, cog: Cog, x_start: int | None = None, x_end: int | None = None) -> list[bytes]:
+async def read_row(y: int, z: int, cog: Cog, x_start: int | None = None, x_end: int | None = None) -> list[bytes]:
     """Read a row of tiles, merging all ranges."""
     ifd = cog.ifds[z]
     image_width = ifd.tags["ImageWidth"].value[0]
@@ -149,7 +149,7 @@ async def read_row(callable: RangeRequestFuncType, y: int, z: int, cog: Cog, x_s
     tile_byte_counts = ifd.tags["TileByteCounts"].value
     range_start = tile_offsets[idx_start]
     range_end = tile_offsets[idx_end] + tile_byte_counts[idx_end]
-    b = await callable(cog.bucket, cog.key, range_start, range_end)
+    b = await cog._send_range_request(cog.bucket, cog.key, range_start, range_end)
 
     # Break the row into indiviual tiles.  Each tile is compressed individually,
     # and the caller doesn't (easily) have the information to do this themselves.
