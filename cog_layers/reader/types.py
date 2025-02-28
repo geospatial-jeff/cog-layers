@@ -211,9 +211,9 @@ class Cog:
         header: COG header.
         ifds: COG ifds.
     """
+
     bucket: str
     key: str
     header: Header
     ifds: typing.List[IFD]
     _send_range_request: RangeRequestFuncType | None = None
-

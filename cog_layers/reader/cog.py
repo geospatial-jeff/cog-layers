@@ -4,8 +4,19 @@ import struct
 from dataclasses import dataclass
 import functools
 
-from cog_layers.reader.types import Endian, Tag, Header, TiffVersion, _ENDIAN_BYTES, _TAG_TYPES, TagType, IFD, Cog
+from cog_layers.reader.types import (
+    Endian,
+    Tag,
+    Header,
+    TiffVersion,
+    _ENDIAN_BYTES,
+    _TAG_TYPES,
+    TagType,
+    IFD,
+    Cog,
+)
 from cog_layers.reader.io import RangeRequestFuncType
+
 
 @functools.lru_cache
 def _get_tag_cls(code: int) -> typing.Type[Tag] | None:
@@ -13,9 +24,11 @@ def _get_tag_cls(code: int) -> typing.Type[Tag] | None:
     available_tags = {t.id: t for t in Tag.__subclasses__()}
     return available_tags.get(code, None)
 
+
 def _get_endian(b: bytes) -> Endian:
     """Lookup endian."""
     return _ENDIAN_BYTES[b]
+
 
 def _get_tag_type(code: int) -> TagType:
     """Lookup tag type."""
@@ -24,7 +37,7 @@ def _get_tag_type(code: int) -> TagType:
 
 def _add_jpeg_tables(tile: bytes, ifd: IFD, endian: Endian):
     """Append JPEG tables to the tile, making it a valid JPEG image"""
-    jpeg_tables = ifd.tags['JPEGTables']
+    jpeg_tables = ifd.tags["JPEGTables"]
     encoded_jpeg_tables = struct.pack(
         f"{endian.value}{jpeg_tables.count}{jpeg_tables.type.format}",
         *jpeg_tables.value,
@@ -36,7 +49,12 @@ def _add_jpeg_tables(tile: bytes, ifd: IFD, endian: Endian):
         raise Exception("Missing SOI marker for JPEG tile")
 
 
-async def open_cog(callable: RangeRequestFuncType, bucket: str, key: str, header_size_bytes: int = 32768) -> Cog:
+async def open_cog(
+    callable: RangeRequestFuncType,
+    bucket: str,
+    key: str,
+    header_size_bytes: int = 32768,
+) -> Cog:
     """Open a Cloud Optimized GeoTiff using the supplied callable.  `header_size_bytes` must be set large
     enough to read the entire header or this code will probably break.
     """
@@ -99,7 +117,9 @@ async def open_cog(callable: RangeRequestFuncType, bucket: str, key: str, header
             decoded_tag_value = struct.unpack(
                 f"{header.endian.value}{count}{tag_type.format}", tag_value
             )
-            tag = tag_cls(count=count, type=tag_type, size=size, value=decoded_tag_value)
+            tag = tag_cls(
+                count=count, type=tag_type, size=size, value=decoded_tag_value
+            )
             tags[tag.name] = tag
 
         # Last 4 bytes of IFD contains offset to the next IFD.
@@ -115,7 +135,7 @@ async def open_cog(callable: RangeRequestFuncType, bucket: str, key: str, header
 
 async def read_tile(x: int, y: int, z: int, cog: Cog) -> bytes:
     """Read a single tile from an IFD.
-    
+
     Inputs are expressed in tile coordinates relative to the top-left corner
     of the image, while `z` is used to select the IFD.
     """
@@ -131,14 +151,18 @@ async def read_tile(x: int, y: int, z: int, cog: Cog) -> bytes:
     tile_byte_count = ifd.tags["TileByteCounts"].value[idx]
 
     # Read the tile.
-    b = await cog._send_range_request(cog.bucket, cog.key, tile_offset, tile_offset + tile_byte_count)
+    b = await cog._send_range_request(
+        cog.bucket, cog.key, tile_offset, tile_offset + tile_byte_count
+    )
     b = _add_jpeg_tables(b, ifd, cog.header.endian)
     return b
 
 
-async def read_row(y: int, z: int, cog: Cog, x_start: int | None = None, x_end: int | None = None) -> list[bytes]:
+async def read_row(
+    y: int, z: int, cog: Cog, x_start: int | None = None, x_end: int | None = None
+) -> list[bytes]:
     """Read a row of tiles, merging all ranges.
-    
+
     Inputs are expressed in tile coordinates relative to the top-left corner
     of the image.  Optionally return only tiles between `x_start` and
     `x_end` (inclusive).
@@ -151,15 +175,15 @@ async def read_row(y: int, z: int, cog: Cog, x_start: int | None = None, x_end: 
     if x_start is not None:
         idx_start = (y * columns) + x_start
     else:
-        idx_start = (y * columns)
-    
+        idx_start = y * columns
+
     if x_end is not None:
         idx_end = (y * columns) + x_end
     else:
         idx_end = (y * columns) + int((image_width / tile_width))
-    
+
     # Read from the start of the first tile to the end of the last.
-    tile_offsets = ifd.tags['TileOffsets'].value
+    tile_offsets = ifd.tags["TileOffsets"].value
     tile_byte_counts = ifd.tags["TileByteCounts"].value
     range_start = tile_offsets[idx_start]
     range_end = tile_offsets[idx_end] + tile_byte_counts[idx_end]
@@ -170,7 +194,7 @@ async def read_row(y: int, z: int, cog: Cog, x_start: int | None = None, x_end: 
     tiles = []
     for i in range(idx_start, idx_end + 1):
         relative_offset = tile_offsets[i] - range_start
-        tile_content = b[relative_offset:relative_offset+tile_byte_counts[i]]
+        tile_content = b[relative_offset : relative_offset + tile_byte_counts[i]]
         tile_content = _add_jpeg_tables(tile_content, ifd, cog.header.endian)
         tiles.append(tile_content)
     return tiles
