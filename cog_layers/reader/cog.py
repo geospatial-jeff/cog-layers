@@ -1,7 +1,6 @@
 import math
 import typing
 import struct
-from dataclasses import dataclass
 import functools
 
 from cog_layers.reader.types import (

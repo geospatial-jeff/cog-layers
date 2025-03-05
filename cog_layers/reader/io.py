@@ -1,27 +1,12 @@
-import os
-from dataclasses import dataclass
 import typing
 import functools
 
-import aiohttp
 import obstore as obs
 
 
 RangeRequestFuncType = typing.Callable[
     [str, str, int, int, typing.Any], typing.Awaitable[bytes]
 ]
-
-
-@functools.lru_cache(maxsize=1)
-def _get_default_aiohttp_client(**kwargs) -> aiohttp.ClientSession:
-    """Default aiohttp client with a singleton cache."""
-    return aiohttp.ClientSession(**kwargs)
-
-
-async def send_range_aiohttp(
-    bucket: str, key: str, start: int, end: int, client: typing.Any | None = None
-) -> bytes:
-    raise NotImplementedError()
 
 
 @functools.lru_cache(maxsize=1)
